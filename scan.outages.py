@@ -104,4 +104,5 @@ if __name__ == '__main__':
 
         if outages_logged > 0:
             git_push()
-            sleep(post_to_git_every_seconds)
+
+        sleep(post_to_git_every_seconds)
