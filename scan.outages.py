@@ -9,30 +9,33 @@ def line_is_outage(line: str) -> bool:
 
 
 def git_push() -> None:
+    repo = Repo(".git")
+    repo.git.add("outages.txt")
+    repo.index.commit(datetime.now().isoformat())
+    origin = repo.remote(name='origin')
     while True:
         try:
-            repo = Repo(".git")
-            repo.git.add("outages.txt")
-            repo.index.commit(datetime.now().isoformat())
-            origin = repo.remote(name='origin')
             origin.push()
+            print(f"{datetime.now()}: successfully pushed")
             return
         except Exception as e:
-            print(e)
-            sleep(60)
+            retry_seconds = 60
+            print(f"{datetime.now()}: failed to push, retrying in {retry_seconds} seconds", e)
+            sleep(retry_seconds)
 
 
 def log_outage(last_good_time: str, new_good_time: str, threshold: int) -> None:
-    new_dt = datetime.strptime(new_good_time, "%m/%d/%Y %I:%M:%S %p")
-    last_dt = datetime.strptime(last_good_time, "%m/%d/%Y %I:%M:%S %p")
+    s_fmt = "%m/%d/%Y %I:%M:%S %p"
+    new_dt = datetime.strptime(new_good_time, s_fmt)
+    last_dt = datetime.strptime(last_good_time, s_fmt)
 
     elapsed = new_dt - last_dt
     if elapsed > timedelta(seconds=threshold):
         with open("outages.txt", "r+") as fw:
             content = fw.read()
             fw.seek(0, 0)
-            _from = last_dt.strftime("%m/%d/%Y %I:%M:%S %p")
-            to = new_dt.strftime("%m/%d/%Y %I:%M:%S %p")
+            _from = last_dt.strftime(s_fmt)
+            to = new_dt.strftime(s_fmt)
             fw.write(f"{_from} - {to} : out for {str(elapsed)} \n" + content)
 
 
@@ -55,6 +58,8 @@ if __name__ == '__main__':
         line_to_begin = get_line_to_begin(previously_read_line_file)
         post_to_git_every_seconds = 3600  # hourly
 
+        outages_logged = 0
+
         with open(ping_log_file, "r", encoding="utf-16-le") as fr:
             last_good_time = None  # last time we had connection
             outage = False
@@ -71,6 +76,7 @@ if __name__ == '__main__':
                             last_good_time,
                             new_good_time,
                             outage_threshold_seconds)
+                        outages_logged += 1
                         outage = False
 
                     last_good_time = new_good_time
@@ -78,6 +84,8 @@ if __name__ == '__main__':
                     outage = True
 
             line_to_begin = line_to_begin + i
+
+        print(f"{datetime.now()}: logged {outages_logged} outages to {ping_log_file}")
 
         with open("previously.readline.txt", "w") as pf:
             pf.write(str(line_to_begin))
