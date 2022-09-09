@@ -32,7 +32,7 @@ def git_push() -> None:
             sleep(retry_seconds)
 
 
-def log_outage(last_good_time: str, new_good_time: str, threshold: int) -> None:
+def log_outage(last_good_time: str, new_good_time: str, threshold: int) -> bool:
     s_fmt = "%m/%d/%Y %I:%M:%S %p"
     new_dt = datetime.strptime(new_good_time, s_fmt)
     last_dt = datetime.strptime(last_good_time, s_fmt)
@@ -45,6 +45,8 @@ def log_outage(last_good_time: str, new_good_time: str, threshold: int) -> None:
             _from = last_dt.strftime(s_fmt)
             to = new_dt.strftime(s_fmt)
             fw.write(f"{_from} - {to} : out for {str(elapsed)} \n" + content)
+        return True
+    return False
 
 
 def get_line_to_begin(filepath: str) -> int:
@@ -75,28 +77,31 @@ if __name__ == '__main__':
             # read all lines in ping_log_file started where we stopped last
             lines = fr.readlines()[line_to_begin:]
             for i, line in enumerate(lines):
-                if not line_is_outage(line):
-                    split = line.split(" ")
-                    new_good_time = f"{split[0]} {split[1]} {split[2]}"
-
-                    if last_good_time is not None and outage:
-                        log_outage(
-                            last_good_time,
-                            new_good_time,
-                            outage_threshold_seconds)
-                        outages_logged += 1
-                        outage = False
-
-                    last_good_time = new_good_time
-                else:
+                if line_is_outage(line):
                     outage = True
+                    continue
+
+                split = line.split(" ")
+                new_good_time = f"{split[0]} {split[1]} {split[2]}"
+
+                if last_good_time is not None and outage:
+                    logged = log_outage(
+                        last_good_time,
+                        new_good_time,
+                        outage_threshold_seconds)
+                    if logged:
+                        outages_logged += 1
+                    outage = False
+
+                last_good_time = new_good_time
 
             line_to_begin = line_to_begin + i
 
-        print(f"{datetime.now()}: logged {outages_logged} outages to {ping_log_file}")
+        print(f"{datetime.now()}: logged {outages_logged} outages to outages.txt")
 
         with open("previously.readline.txt", "w") as pf:
             pf.write(str(line_to_begin))
 
-        git_push()
-        sleep(post_to_git_every_seconds)
+        if outages_logged > 0:
+            git_push()
+            sleep(post_to_git_every_seconds)
