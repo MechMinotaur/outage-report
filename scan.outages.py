@@ -5,7 +5,15 @@ from git import Repo
 
 
 def line_is_outage(line: str) -> bool:
-    return re.search(r"time=(\d+)ms", line) is None
+    match = re.search(r"time=(\d+)[.]*(\d*)[ ]*ms", line)
+
+    if match is not None:
+        s = match[0].replace("time=", "").replace("ms", "").strip()
+        ms = float(s)
+        if ms < 100:
+            return False
+
+    return True
 
 
 def git_push() -> None:
