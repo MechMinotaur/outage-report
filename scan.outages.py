@@ -9,17 +9,17 @@ def line_is_outage(line: str) -> bool:
 
 
 def git_push() -> None:
-    try:
-        while True:
+    while True:
+        try:
             repo = Repo(".git")
             repo.git.add("outages.txt")
             repo.index.commit(datetime.now().isoformat())
             origin = repo.remote(name='origin')
             origin.push()
             return
-    except Exception as e:
-        print(e)
-        sleep(60)
+        except Exception as e:
+            print(e)
+            sleep(60)
 
 
 def log_outage(last_good_time: str, new_good_time: str, threshold: int) -> None:
