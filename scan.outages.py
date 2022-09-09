@@ -47,10 +47,10 @@ def get_line_to_begin(filepath: str) -> int:
 
 if __name__ == '__main__':
     while True:
-        ping_log_file = "C:/Users/timbu/Desktop/google.ping.log"
+        ping_log_file = "ping.log"
         previously_read_line_file = "previously.readline.txt"
 
-        outage_threshold_seconds = 5  # seconds before considering an outage
+        outage_threshold_seconds = 11  # seconds before considering an outage
 
         line_to_begin = get_line_to_begin(previously_read_line_file)
         post_to_git_every_seconds = 3600  # hourly
