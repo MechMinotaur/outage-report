@@ -16,20 +16,18 @@ def line_is_outage(line: str) -> bool:
     return True
 
 
-def git_push() -> None:
+def git_push(num_outages: int) -> bool:
     repo = Repo(".git")
     repo.git.add("outages.txt")
     repo.index.commit(datetime.now().isoformat())
     origin = repo.remote(name='origin')
-    while True:
-        try:
-            origin.push()
-            print(f"{datetime.now()}: successfully pushed")
-            return
-        except Exception as e:
-            retry_seconds = 60
-            print(f"{datetime.now()}: failed to push, retrying in {retry_seconds} seconds", e)
-            sleep(retry_seconds)
+    try:
+        origin.push()
+        print(f"{datetime.now()}: successfully pushed {num_outages} outages!")
+        return True
+    except Exception as e:
+        print(f"{datetime.now()}: failed to push!", e)
+        return False
 
 
 def log_outage(last_good_time: str, new_good_time: str, threshold: int) -> bool:
@@ -59,18 +57,19 @@ def get_line_to_begin(filepath: str) -> int:
 
 
 if __name__ == '__main__':
-    while True:
-        ping_log_file = "ping.log"
-        previously_read_line_file = "previously.readline.txt"
+    outages_logged = 0
+    ping_log_file = "ping.log"
+    previously_read_line_file = "previously.readline.txt"
 
-        outage_threshold_seconds = 11  # seconds before considering an outage
+    outage_threshold_seconds = 11  # seconds before considering an outage
+
+    while True:
 
         line_to_begin = get_line_to_begin(previously_read_line_file)
         post_to_git_every_seconds = 3600  # hourly
 
-        outages_logged = 0
-
         with open(ping_log_file, "r", encoding="utf-16-le") as fr:
+            outages_logged_this_iteration = 0
             last_good_time = None  # last time we had connection
             outage = False
 
@@ -90,6 +89,7 @@ if __name__ == '__main__':
                         new_good_time,
                         outage_threshold_seconds)
                     if logged:
+                        outages_logged_this_iteration += 1
                         outages_logged += 1
                     outage = False
 
@@ -97,12 +97,18 @@ if __name__ == '__main__':
 
             line_to_begin = line_to_begin + i
 
-        print(f"{datetime.now()}: logged {outages_logged} outages to outages.txt")
+        print(f"{datetime.now()}: logged {outages_logged_this_iteration} outages to outages.txt")
 
         with open("previously.readline.txt", "w") as pf:
             pf.write(str(line_to_begin))
 
         if outages_logged > 0:
-            git_push()
+            pushed = git_push(outages_logged)
+        else:
+            pushed = True
 
-        sleep(post_to_git_every_seconds)
+        if pushed:
+            outages_logged = 0
+            sleep(post_to_git_every_seconds)
+        else:
+            sleep(120)
